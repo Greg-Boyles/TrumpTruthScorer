@@ -2,7 +2,7 @@ namespace Shared;
 
 public class BackfillRequest
 {
-    public string Mode { get; set; } = "full";
+    public string Mode { get; set; } = "analyze";
     public string Handle { get; set; } = "realDonaldTrump";
     public string? StartDate { get; set; }
     public string? EndDate { get; set; }

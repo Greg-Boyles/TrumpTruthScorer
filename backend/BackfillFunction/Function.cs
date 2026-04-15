@@ -81,7 +81,7 @@ public class Function
     {
         var today = DateTime.UtcNow.Date;
         var request = input ?? new BackfillRequest();
-        request.Mode = string.IsNullOrWhiteSpace(request.Mode) ? "full" : request.Mode.Trim().ToLowerInvariant();
+        request.Mode = string.IsNullOrWhiteSpace(request.Mode) ? "analyze" : request.Mode.Trim().ToLowerInvariant();
         request.Handle = string.IsNullOrWhiteSpace(request.Handle) ? "realDonaldTrump" : request.Handle.Trim();
         request.EndDate = NormalizeDateString(request.EndDate) ?? today.ToString("yyyy-MM-dd");
         request.StartDate = NormalizeDateString(request.StartDate) ?? today.AddDays(-1).ToString("yyyy-MM-dd");
