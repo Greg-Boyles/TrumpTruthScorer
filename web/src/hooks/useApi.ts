@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import type { PostsResponse, DailySummary, TrendsResponse } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://api.example.com';
+const API_BASE = (
+  import.meta.env.VITE_API_URL ||
+  'https://nwa0gjc318.execute-api.eu-west-1.amazonaws.com/prod'
+).replace(/\/$/, '');
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);

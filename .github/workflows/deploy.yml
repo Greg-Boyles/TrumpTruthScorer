@@ -78,7 +78,7 @@ jobs:
       - name: Build
         working-directory: web
         env:
-          VITE_API_URL: ${{ vars.API_URL }}
+          VITE_API_URL: https://nwa0gjc318.execute-api.eu-west-1.amazonaws.com/prod
         run: npm run build
       
       - name: Upload web artifacts

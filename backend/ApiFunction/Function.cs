@@ -161,6 +161,20 @@ public class Function
                 var analyses = posts.Where(p => p.Analysis != null).Select(p => p.Analysis!).ToList();
                 var avgMental = analyses.Count > 0 ? analyses.Average(a => a.MentalScore) : 0;
                 var avgMoral = analyses.Count > 0 ? analyses.Average(a => a.MoralScore) : 0;
+                var postingHours = posts
+                    .Select(p => DateTime.Parse(p.Post.CreatedAt).Hour)
+                    .Distinct()
+                    .OrderBy(h => h)
+                    .ToList();
+                var quietHours = CalculateQuietHours(postingHours);
+                var topThemes = analyses
+                    .SelectMany(a => a.KeyThemes ?? new List<string>())
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .GroupBy(t => t.ToLowerInvariant())
+                    .OrderByDescending(g => g.Count())
+                    .Take(5)
+                    .Select(g => g.Key)
+                    .ToList();
 
                 return CreateResponse(200, new
                 {
@@ -169,6 +183,12 @@ public class Function
                     avgMentalScore = Math.Round(avgMental, 1),
                     avgMoralScore = Math.Round(avgMoral, 1),
                     overallScore = Math.Round((avgMental + avgMoral) / 2, 1),
+                    topThemes,
+                    summaryText = string.Empty,
+                    postingHours,
+                    quietHoursStart = quietHours.start,
+                    quietHoursEnd = quietHours.end,
+                    createdAt = DateTime.UtcNow.ToString("O"),
                     cached = false
                 });
             }
@@ -213,6 +233,46 @@ public class Function
         }
 
         return CreateResponse(200, new { trends = trends.OrderBy(t => t.Date).ToList() });
+    }
+
+    private static (int? start, int? end) CalculateQuietHours(List<int> postingHours)
+    {
+        if (postingHours.Count < 2) return (null, null);
+
+        var quietHours = Enumerable.Range(0, 24).Except(postingHours).ToList();
+        if (quietHours.Count == 0) return (null, null);
+
+        var longestStart = quietHours[0];
+        var longestLength = 1;
+        var currentStart = quietHours[0];
+        var currentLength = 1;
+
+        for (int i = 1; i < quietHours.Count; i++)
+        {
+            if (quietHours[i] == quietHours[i - 1] + 1 || (quietHours[i - 1] == 23 && quietHours[i] == 0))
+            {
+                currentLength++;
+            }
+            else
+            {
+                if (currentLength > longestLength)
+                {
+                    longestStart = currentStart;
+                    longestLength = currentLength;
+                }
+
+                currentStart = quietHours[i];
+                currentLength = 1;
+            }
+        }
+
+        if (currentLength > longestLength)
+        {
+            longestStart = currentStart;
+            longestLength = currentLength;
+        }
+
+        return (longestStart, (longestStart + longestLength - 1) % 24);
     }
 
     private APIGatewayProxyResponse CreateResponse(int statusCode, object body)

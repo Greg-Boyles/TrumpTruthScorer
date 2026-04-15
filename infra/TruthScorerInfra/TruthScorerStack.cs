@@ -87,6 +87,7 @@ namespace TruthScorerInfra
             var scraperFunction = new LambdaFunction(this, "ScraperFunction", new LambdaFunctionProps
             {
                 FunctionName = "TruthScorer-Scraper",
+                Description = "Fetches Donald Trump Truth Social posts and stores new posts in DynamoDB.",
                 Runtime = LambdaRuntime.DOTNET_8,
                 Handler = "ScraperFunction::ScraperFunction.Function::FunctionHandler",
                 Code = LambdaCode.FromAsset("../backend/ScraperFunction/bin/Release/net8.0/publish"),
@@ -102,6 +103,7 @@ namespace TruthScorerInfra
             var analysisFunction = new LambdaFunction(this, "AnalysisFunction", new LambdaFunctionProps
             {
                 FunctionName = "TruthScorer-Analysis",
+                Description = "Analyzes Truth Social posts with Bedrock and stores mental and moral scores.",
                 Runtime = LambdaRuntime.DOTNET_8,
                 Handler = "AnalysisFunction::AnalysisFunction.Function::FunctionHandler",
                 Code = LambdaCode.FromAsset("../backend/AnalysisFunction/bin/Release/net8.0/publish"),
@@ -114,6 +116,7 @@ namespace TruthScorerInfra
             var summaryFunction = new LambdaFunction(this, "SummaryFunction", new LambdaFunctionProps
             {
                 FunctionName = "TruthScorer-DailySummary",
+                Description = "Aggregates daily Truth Social activity into summary metrics and scores.",
                 Runtime = LambdaRuntime.DOTNET_8,
                 Handler = "SummaryFunction::SummaryFunction.Function::FunctionHandler",
                 Code = LambdaCode.FromAsset("../backend/SummaryFunction/bin/Release/net8.0/publish"),
@@ -126,12 +129,29 @@ namespace TruthScorerInfra
             var apiFunction = new LambdaFunction(this, "ApiFunction", new LambdaFunctionProps
             {
                 FunctionName = "TruthScorer-Api",
+                Description = "Serves the Truth Scorer REST API for posts, summaries, and trends.",
                 Runtime = LambdaRuntime.DOTNET_8,
                 Handler = "ApiFunction::ApiFunction.Function::FunctionHandler",
                 Code = LambdaCode.FromAsset("../backend/ApiFunction/bin/Release/net8.0/publish"),
                 MemorySize = 512,
                 Timeout = Duration.Seconds(30),
                 Environment = lambdaEnvironment
+            });
+
+            // Backfill Function - operational tooling for historical ingest/analysis/summary regeneration
+            var backfillFunction = new LambdaFunction(this, "BackfillFunction", new LambdaFunctionProps
+            {
+                FunctionName = "TruthScorer-Backfill",
+                Description = "On-demand backfill workflow for historical posts, analyses, and summaries.",
+                Runtime = LambdaRuntime.DOTNET_8,
+                Handler = "BackfillFunction::BackfillFunction.Function::FunctionHandler",
+                Code = LambdaCode.FromAsset("../backend/BackfillFunction/bin/Release/net8.0/publish"),
+                MemorySize = 1024,
+                Timeout = Duration.Minutes(15),
+                Environment = new Dictionary<string, string>(lambdaEnvironment)
+                {
+                    { "SCRAPECREATORS_API_KEY_PARAM", "/truthscorer/scrapecreators-api-key" }
+                }
             });
 
             // ============================================
@@ -163,6 +183,21 @@ namespace TruthScorerInfra
             {
                 Actions = new[] { "ssm:GetParameter" },
                 Resources = new[] { $"arn:aws:ssm:{Region}:{Account}:parameter/truthscorer/*" }
+            }));
+
+            // Backfill function IAM permissions
+            postsTable.GrantReadWriteData(backfillFunction);
+            analysisTable.GrantReadWriteData(backfillFunction);
+            summariesTable.GrantReadWriteData(backfillFunction);
+            backfillFunction.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
+            {
+                Actions = new[] { "ssm:GetParameter" },
+                Resources = new[] { $"arn:aws:ssm:{Region}:{Account}:parameter/truthscorer/*" }
+            }));
+            backfillFunction.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
+            {
+                Actions = new[] { "bedrock:InvokeModel" },
+                Resources = new[] { "*" }
             }));
 
             // ============================================

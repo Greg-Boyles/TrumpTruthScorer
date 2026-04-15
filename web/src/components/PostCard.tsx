@@ -10,6 +10,7 @@ interface PostCardProps {
 export function PostCard({ data }: PostCardProps) {
   const { post, analysis } = data;
   const createdAt = new Date(post.createdAt);
+  const keyThemes = analysis?.keyThemes ?? [];
 
   return (
     <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 card-hover">
@@ -84,9 +85,9 @@ export function PostCard({ data }: PostCardProps) {
           </p>
 
           {/* Themes */}
-          {analysis.keyThemes.length > 0 && (
+          {keyThemes.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {analysis.keyThemes.map((theme, i) => (
+              {keyThemes.map((theme, i) => (
                 <span 
                   key={i}
                   className="inline-flex items-center gap-1 text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded"

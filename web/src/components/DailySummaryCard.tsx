@@ -23,6 +23,8 @@ function getOverallGrade(score: number): { grade: string; color: string } {
 
 export function DailySummaryCard({ summary }: DailySummaryCardProps) {
   const { grade, color } = getOverallGrade(summary.overallScore);
+  const postingHours = summary.postingHours ?? [];
+  const topThemes = summary.topThemes ?? [];
 
   return (
     <div className="bg-gradient-to-br from-slate-900 to-slate-900/50 border border-slate-800 rounded-2xl p-6">
@@ -62,7 +64,7 @@ export function DailySummaryCard({ summary }: DailySummaryCardProps) {
         </div>
         <div className="flex gap-1">
           {Array.from({ length: 24 }).map((_, hour) => {
-            const isActive = summary.postingHours.includes(hour);
+            const isActive = postingHours.includes(hour);
             return (
               <div
                 key={hour}
@@ -96,14 +98,14 @@ export function DailySummaryCard({ summary }: DailySummaryCardProps) {
       )}
 
       {/* Top Themes */}
-      {summary.topThemes.length > 0 && (
+      {topThemes.length > 0 && (
         <div className="border-t border-slate-800 pt-4">
           <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
             <Tag className="w-4 h-4" />
             <span>Top Themes</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {summary.topThemes.map((theme, i) => (
+            {topThemes.map((theme, i) => (
               <span
                 key={i}
                 className="text-xs bg-slate-800 text-slate-300 px-2 py-1 rounded capitalize"
