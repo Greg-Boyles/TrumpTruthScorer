@@ -8,7 +8,7 @@ namespace Shared;
 
 public class PostAnalysisService
 {
-    private const string ModelId = "anthropic.claude-3-5-haiku-20241022-v1:0";
+    private const string ModelId = "anthropic.claude-3-haiku-20240307-v1:0";
 
     public async Task<Analysis?> AnalyzePostAsync(Post post, IAmazonBedrockRuntime bedrockClient, Action<string>? log = null)
     {
