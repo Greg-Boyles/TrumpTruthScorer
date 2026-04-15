@@ -1,0 +1,99 @@
+name: Backend Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'infra/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'infra/**'
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore dependencies
+        run: |
+          dotnet restore backend/Shared/Shared.csproj
+          dotnet restore backend/ScraperFunction/ScraperFunction.csproj
+          dotnet restore backend/AnalysisFunction/AnalysisFunction.csproj
+          dotnet restore backend/SummaryFunction/SummaryFunction.csproj
+          dotnet restore backend/ApiFunction/ApiFunction.csproj
+      
+      - name: Build
+        run: |
+          dotnet build backend/Shared/Shared.csproj --configuration Release --no-restore
+          dotnet build backend/ScraperFunction/ScraperFunction.csproj --configuration Release --no-restore
+          dotnet build backend/AnalysisFunction/AnalysisFunction.csproj --configuration Release --no-restore
+          dotnet build backend/SummaryFunction/SummaryFunction.csproj --configuration Release --no-restore
+          dotnet build backend/ApiFunction/ApiFunction.csproj --configuration Release --no-restore
+      
+      - name: Publish Lambda packages
+        run: |
+          dotnet publish backend/ScraperFunction/ScraperFunction.csproj -c Release -o backend/ScraperFunction/bin/Release/net8.0/publish
+          dotnet publish backend/AnalysisFunction/AnalysisFunction.csproj -c Release -o backend/AnalysisFunction/bin/Release/net8.0/publish
+          dotnet publish backend/SummaryFunction/SummaryFunction.csproj -c Release -o backend/SummaryFunction/bin/Release/net8.0/publish
+          dotnet publish backend/ApiFunction/ApiFunction.csproj -c Release -o backend/ApiFunction/bin/Release/net8.0/publish
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-packages
+          path: backend/*/bin/Release/net8.0/publish/
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Setup Node.js (for CDK)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
+      
+      - name: Download Lambda artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-packages
+          path: backend/
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Restore CDK dependencies
+        working-directory: infra
+        run: dotnet restore TruthScorerInfra/TruthScorerInfra.csproj
+      
+      - name: CDK Deploy
+        working-directory: infra
+        run: cdk deploy --require-approval never
