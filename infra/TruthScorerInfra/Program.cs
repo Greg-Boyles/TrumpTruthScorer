@@ -8,7 +8,7 @@ new TruthScorerStack(app, "TruthScorerStack", new StackProps
     Env = new Amazon.CDK.Environment
     {
         Account = System.Environment.GetEnvironmentVariable("CDK_DEFAULT_ACCOUNT"),
-        Region = System.Environment.GetEnvironmentVariable("CDK_DEFAULT_REGION") ?? "us-east-1"
+        Region = System.Environment.GetEnvironmentVariable("CDK_DEFAULT_REGION") ?? "eu-west-1"
     }
 });
 
