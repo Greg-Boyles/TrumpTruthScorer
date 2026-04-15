@@ -33,6 +33,7 @@ jobs:
           dotnet restore backend/AnalysisFunction/AnalysisFunction.csproj
           dotnet restore backend/SummaryFunction/SummaryFunction.csproj
           dotnet restore backend/ApiFunction/ApiFunction.csproj
+          dotnet restore backend/BackfillFunction/BackfillFunction.csproj
       
       - name: Build
         run: |
@@ -41,6 +42,7 @@ jobs:
           dotnet build backend/AnalysisFunction/AnalysisFunction.csproj -c Release --no-restore
           dotnet build backend/SummaryFunction/SummaryFunction.csproj -c Release --no-restore
           dotnet build backend/ApiFunction/ApiFunction.csproj -c Release --no-restore
+          dotnet build backend/BackfillFunction/BackfillFunction.csproj -c Release --no-restore
       
       - name: Publish Lambda packages
         run: |
@@ -48,6 +50,7 @@ jobs:
           dotnet publish backend/AnalysisFunction/AnalysisFunction.csproj -c Release -o backend/AnalysisFunction/bin/Release/net8.0/publish
           dotnet publish backend/SummaryFunction/SummaryFunction.csproj -c Release -o backend/SummaryFunction/bin/Release/net8.0/publish
           dotnet publish backend/ApiFunction/ApiFunction.csproj -c Release -o backend/ApiFunction/bin/Release/net8.0/publish
+          dotnet publish backend/BackfillFunction/BackfillFunction.csproj -c Release -o backend/BackfillFunction/bin/Release/net8.0/publish
       
       - name: Upload Lambda artifacts
         uses: actions/upload-artifact@v4
@@ -58,6 +61,7 @@ jobs:
             backend/AnalysisFunction/bin/Release/net8.0/publish/
             backend/SummaryFunction/bin/Release/net8.0/publish/
             backend/ApiFunction/bin/Release/net8.0/publish/
+            backend/BackfillFunction/bin/Release/net8.0/publish/
 
   build-web:
     runs-on: ubuntu-latest
