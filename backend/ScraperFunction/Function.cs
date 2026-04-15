@@ -1,6 +1,8 @@
 using Amazon.Lambda.Core;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
+using Amazon.SimpleSystemsManagement;
+using Amazon.SimpleSystemsManagement.Model;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -13,17 +15,34 @@ namespace ScraperFunction;
 public class Function
 {
     private readonly IDynamoDBContext _dbContext;
+    private readonly IAmazonSimpleSystemsManagement _ssmClient;
     private readonly HttpClient _httpClient;
     private readonly string _postsTable;
-    private readonly string _apiKey;
+    private readonly string _apiKeyParam;
+    private string? _apiKeyCache;
 
     public Function()
     {
         var client = new AmazonDynamoDBClient();
         _dbContext = new DynamoDBContext(client);
+        _ssmClient = new AmazonSimpleSystemsManagementClient();
         _httpClient = new HttpClient();
         _postsTable = Environment.GetEnvironmentVariable("POSTS_TABLE") ?? "TruthScorer-Posts";
-        _apiKey = Environment.GetEnvironmentVariable("SCRAPECREATORS_API_KEY") ?? "";
+        _apiKeyParam = Environment.GetEnvironmentVariable("SCRAPECREATORS_API_KEY_PARAM") ?? "/truthscorer/scrapecreators-api-key";
+    }
+
+    private async Task<string> GetApiKeyAsync()
+    {
+        if (_apiKeyCache != null) return _apiKeyCache;
+        
+        var response = await _ssmClient.GetParameterAsync(new GetParameterRequest
+        {
+            Name = _apiKeyParam,
+            WithDecryption = true
+        });
+        
+        _apiKeyCache = response.Parameter.Value;
+        return _apiKeyCache;
     }
 
     public async Task<string> FunctionHandler(object input, ILambdaContext context)
@@ -57,9 +76,10 @@ public class Function
     private async Task<List<Post>> FetchTruthSocialPosts(ILambdaContext context)
     {
         var url = "https://api.scrapecreators.com/v1/truthsocial/user/posts?handle=realDonaldTrump";
+        var apiKey = await GetApiKeyAsync();
         
         var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Add("x-api-key", _apiKey);
+        request.Headers.Add("x-api-key", apiKey);
         
         var response = await _httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();

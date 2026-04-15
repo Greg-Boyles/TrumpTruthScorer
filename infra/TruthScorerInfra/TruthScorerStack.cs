@@ -94,7 +94,7 @@ namespace TruthScorerInfra
                 Timeout = Duration.Minutes(2),
                 Environment = new Dictionary<string, string>(lambdaEnvironment)
                 {
-                    { "SCRAPECREATORS_API_KEY", "{{resolve:ssm-secure:/truthscorer/scrapecreators-api-key}}" }
+                    { "SCRAPECREATORS_API_KEY_PARAM", "/truthscorer/scrapecreators-api-key" }
                 }
             });
 
@@ -156,6 +156,13 @@ namespace TruthScorerInfra
             {
                 Actions = new[] { "bedrock:InvokeModel" },
                 Resources = new[] { "*" }
+            }));
+
+            // Grant SSM read permission for API key to Scraper function
+            scraperFunction.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
+            {
+                Actions = new[] { "ssm:GetParameter" },
+                Resources = new[] { $"arn:aws:ssm:{Region}:{Account}:parameter/truthscorer/*" }
             }));
 
             // ============================================
