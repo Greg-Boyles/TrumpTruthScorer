@@ -94,7 +94,7 @@ namespace TruthScorerInfra
                 Timeout = Duration.Minutes(2),
                 Environment = new Dictionary<string, string>(lambdaEnvironment)
                 {
-                    { "SCRAPECREATORS_API_KEY", "{{resolve:ssm:/truthscorer/scrapecreators-api-key}}" }
+                    { "SCRAPECREATORS_API_KEY", "{{resolve:ssm-secure:/truthscorer/scrapecreators-api-key}}" }
                 }
             });
 
