@@ -27,6 +27,8 @@ namespace TruthScorerInfra
     {
         public TruthScorerStack(Construct scope, string id, IStackProps props = null) : base(scope, id, props)
         {
+            // Add project tag to all resources
+            Tags.Of(this).Add("Project", "TruthScorer");
             // ============================================
             // DynamoDB Tables
             // ============================================
@@ -289,6 +291,12 @@ namespace TruthScorerInfra
             {
                 Value = websiteBucket.BucketName,
                 Description = "S3 bucket for website hosting"
+            });
+
+            new CfnOutput(this, "WebDistributionId", new CfnOutputProps
+            {
+                Value = distribution.DistributionId,
+                Description = "CloudFront distribution ID"
             });
         }
     }

@@ -1,0 +1,148 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20'
+  AWS_REGION: 'us-east-1'
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore dependencies
+        run: |
+          dotnet restore backend/Shared/Shared.csproj
+          dotnet restore backend/ScraperFunction/ScraperFunction.csproj
+          dotnet restore backend/AnalysisFunction/AnalysisFunction.csproj
+          dotnet restore backend/SummaryFunction/SummaryFunction.csproj
+          dotnet restore backend/ApiFunction/ApiFunction.csproj
+      
+      - name: Build
+        run: |
+          dotnet build backend/Shared/Shared.csproj -c Release --no-restore
+          dotnet build backend/ScraperFunction/ScraperFunction.csproj -c Release --no-restore
+          dotnet build backend/AnalysisFunction/AnalysisFunction.csproj -c Release --no-restore
+          dotnet build backend/SummaryFunction/SummaryFunction.csproj -c Release --no-restore
+          dotnet build backend/ApiFunction/ApiFunction.csproj -c Release --no-restore
+      
+      - name: Publish Lambda packages
+        run: |
+          dotnet publish backend/ScraperFunction/ScraperFunction.csproj -c Release -o backend/ScraperFunction/bin/Release/net8.0/publish
+          dotnet publish backend/AnalysisFunction/AnalysisFunction.csproj -c Release -o backend/AnalysisFunction/bin/Release/net8.0/publish
+          dotnet publish backend/SummaryFunction/SummaryFunction.csproj -c Release -o backend/SummaryFunction/bin/Release/net8.0/publish
+          dotnet publish backend/ApiFunction/ApiFunction.csproj -c Release -o backend/ApiFunction/bin/Release/net8.0/publish
+      
+      - name: Upload Lambda artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-packages
+          path: |
+            backend/ScraperFunction/bin/Release/net8.0/publish/
+            backend/AnalysisFunction/bin/Release/net8.0/publish/
+            backend/SummaryFunction/bin/Release/net8.0/publish/
+            backend/ApiFunction/bin/Release/net8.0/publish/
+
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+      
+      - name: Build
+        working-directory: web
+        env:
+          VITE_API_URL: ${{ vars.API_URL }}
+        run: npm run build
+      
+      - name: Upload web artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist/
+
+  deploy:
+    needs: [build-backend, build-web]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Download Lambda artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-packages
+          path: backend/
+      
+      - name: Download web artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist/
+      
+      - name: Restore CDK dependencies
+        working-directory: infra
+        run: dotnet restore TruthScorerInfra/TruthScorerInfra.csproj
+      
+      - name: CDK Deploy
+        working-directory: infra
+        run: cdk deploy --require-approval never --outputs-file outputs.json
+      
+      - name: Get stack outputs
+        id: outputs
+        working-directory: infra
+        run: |
+          echo "bucket=$(jq -r '.TruthScorerStack.WebsiteBucketName' outputs.json)" >> $GITHUB_OUTPUT
+          echo "distribution=$(jq -r '.TruthScorerStack.WebDistributionId // empty' outputs.json)" >> $GITHUB_OUTPUT
+      
+      - name: Deploy web to S3
+        run: |
+          aws s3 sync web/dist/ s3://${{ steps.outputs.outputs.bucket }} --delete
+      
+      - name: Invalidate CloudFront cache
+        if: steps.outputs.outputs.distribution != ''
+        run: |
+          aws cloudfront create-invalidation --distribution-id ${{ steps.outputs.outputs.distribution }} --paths "/*"
