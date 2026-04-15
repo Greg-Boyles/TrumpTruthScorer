@@ -25,10 +25,10 @@ namespace TruthScorerInfra
 {
     public class TruthScorerStack : Stack
     {
-        public TruthScorerStack(Construct scope, string id, IStackProps props = null) : base(scope, id, props)
+        public TruthScorerStack(Construct scope, string id, IStackProps? props = null) : base(scope, id, props)
         {
             // Add project tag to all resources
-            Tags.Of(this).Add("Project", "TruthScorer");
+            Amazon.CDK.Tags.Of(this).Add("Project", "TruthScorer");
             // ============================================
             // DynamoDB Tables
             // ============================================
