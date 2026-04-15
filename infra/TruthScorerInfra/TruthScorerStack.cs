@@ -245,30 +245,28 @@ namespace TruthScorerInfra
             var websiteBucket = new Bucket(this, "WebsiteBucket", new BucketProps
             {
                 BucketName = $"truthscorer-web-{Account}",
-                WebsiteIndexDocument = "index.html",
-                WebsiteErrorDocument = "index.html",
                 PublicReadAccess = false,
                 BlockPublicAccess = BlockPublicAccess.BLOCK_ALL,
                 RemovalPolicy = RemovalPolicy.DESTROY,
                 AutoDeleteObjects = true
             });
 
-            var originAccessIdentity = new OriginAccessIdentity(this, "OAI");
-            websiteBucket.GrantRead(originAccessIdentity);
-
             var distribution = new Distribution(this, "WebDistribution", new DistributionProps
             {
                 DefaultBehavior = new BehaviorOptions
                 {
-                    Origin = new S3Origin(websiteBucket, new S3OriginProps
-                    {
-                        OriginAccessIdentity = originAccessIdentity
-                    }),
+                    Origin = S3BucketOrigin.WithOriginAccessControl(websiteBucket),
                     ViewerProtocolPolicy = ViewerProtocolPolicy.REDIRECT_TO_HTTPS
                 },
                 DefaultRootObject = "index.html",
                 ErrorResponses = new[]
                 {
+                    new ErrorResponse
+                    {
+                        HttpStatus = 403,
+                        ResponseHttpStatus = 200,
+                        ResponsePagePath = "/index.html"
+                    },
                     new ErrorResponse
                     {
                         HttpStatus = 404,
