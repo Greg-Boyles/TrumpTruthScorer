@@ -174,7 +174,12 @@ namespace TruthScorerInfra
             // Grant Bedrock permissions to Analysis function
             analysisFunction.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
             {
-                Actions = new[] { "bedrock:InvokeModel" },
+                Actions = new[] { "bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream" },
+                Resources = new[] { "*" }
+            }));
+            analysisFunction.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
+            {
+                Actions = new[] { "aws-marketplace:ViewSubscriptions", "aws-marketplace:Subscribe" },
                 Resources = new[] { "*" }
             }));
 
@@ -196,7 +201,12 @@ namespace TruthScorerInfra
             }));
             backfillFunction.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
             {
-                Actions = new[] { "bedrock:InvokeModel" },
+                Actions = new[] { "bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream" },
+                Resources = new[] { "*" }
+            }));
+            backfillFunction.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
+            {
+                Actions = new[] { "aws-marketplace:ViewSubscriptions", "aws-marketplace:Subscribe" },
                 Resources = new[] { "*" }
             }));
 
